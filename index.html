@@ -111,6 +111,7 @@
   .section-label { font-size:11px; font-family:'DM Mono',monospace; letter-spacing:2px; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px; }
   .logout-btn { background:transparent; border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 14px; color:var(--text-muted); font-size:12px; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s; }
   .logout-btn:hover { border-color:var(--red); color:var(--red); }
+  .loading { text-align:center; padding:40px; color:var(--text-muted); font-size:14px; }
 </style>
 </head>
 <body>
@@ -193,7 +194,23 @@
 
 <div class="toast" id="toast"></div>
 
-<script>
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCCqUaQ4yXgZAwMJKpNz71vV2kbLofRSpQ",
+  authDomain: "reportes-airbnb-60abf.firebaseapp.com",
+  projectId: "reportes-airbnb-60abf",
+  storageBucket: "reportes-airbnb-60abf.firebasestorage.app",
+  messagingSenderId: "22880360554",
+  appId: "1:22880360554:web:78dc009d84d51e039a9213"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+
 // ── CONFIG ────────────────────────────────────────────────────
 const TG_TOKEN   = '8462112004:AAFa8ZBfoJmHLg2pljfZmmIqstSGuEgSsjc';
 const TG_CHAT_ID = '-5227411507';
@@ -205,18 +222,13 @@ const ROLES = {
   mantenimiento: { nombre:'Mantenimiento', pin:'3333', puedeCrear:false, puedeResolver:true  },
   campo:         { nombre:'Campo',         pin:'4444', puedeCrear:false, puedeResolver:true  },
 };
-// ─────────────────────────────────────────────────────────────
 
 let currentRole = null, currentUser = null, selectedRole = null;
 let selectedImportancia = null, currentTab = 'pendientes';
+let reportesCache = [];
+let unsubscribe = null;
 
-async function getData(key) {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch(e) { return null; }
-}
-async function setData(key,val) {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
-}
-
+// ── TELEGRAM ─────────────────────────────────────────────────
 async function sendTelegram(msg) {
   try {
     await fetch(https://api.telegram.org/bot${TG_TOKEN}/sendMessage, {
@@ -226,15 +238,16 @@ async function sendTelegram(msg) {
   } catch(e) {}
 }
 
-function selectRole(role) {
+// ── LOGIN ─────────────────────────────────────────────────────
+window.selectRole = function(role) {
   selectedRole = role;
   document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('selected'));
   document.getElementById('role-'+role).classList.add('selected');
   document.getElementById('pinInput').focus();
   document.getElementById('loginError').textContent = '';
-}
+};
 
-function doLogin() {
+window.doLogin = function() {
   const pin = document.getElementById('pinInput').value.trim();
   if (!selectedRole) { document.getElementById('loginError').textContent='Selecciona tu rol primero'; return; }
   if (!pin) { document.getElementById('loginError').textContent='Ingresa tu PIN'; return; }
@@ -242,17 +255,18 @@ function doLogin() {
   if (!rol || rol.pin !== pin) { document.getElementById('loginError').textContent='PIN incorrecto'; return; }
   currentRole = selectedRole; currentUser = rol.nombre;
   enterApp();
-}
+};
 
-function doLogout() {
-  currentUser=null; currentRole=null;
+window.doLogout = function() {
+  if (unsubscribe) unsubscribe();
+  currentUser=null; currentRole=null; reportesCache=[];
   document.getElementById('app').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('pinInput').value='';
   document.getElementById('loginError').textContent='';
   selectedRole=null;
   document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('selected'));
-}
+};
 
 function enterApp() {
   document.getElementById('loginScreen').style.display='none';
@@ -266,25 +280,35 @@ function enterApp() {
        <button class="tab" onclick="switchTab('resueltos')" id="tab-resueltos">Resueltos</button>`
     : `<button class="tab active" onclick="switchTab('pendientes')" id="tab-pendientes">Pendientes</button>
        <button class="tab" onclick="switchTab('resueltos')" id="tab-resueltos">Resueltos</button>`;
+
+  // Escuchar cambios en tiempo real
+  const q = query(collection(db, 'reportes'), orderBy('fecha', 'desc'));
+  unsubscribe = onSnapshot(q, (snapshot) => {
+    reportesCache = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (currentTab !== 'nuevo') renderLista();
+    updateNotifBadge();
+  });
+
   switchTab('pendientes');
-  updateNotifBadge();
 }
 
-function switchTab(tab) {
+// ── TABS ──────────────────────────────────────────────────────
+window.switchTab = function(tab) {
   currentTab = tab;
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   const el = document.getElementById('tab-'+tab); if(el) el.classList.add('active');
   document.getElementById('nuevoReporteSection').style.display = (tab==='nuevo') ? 'block' : 'none';
   document.getElementById('listaReportes').style.display = (tab!=='nuevo') ? 'block' : 'none';
   if (tab !== 'nuevo') renderLista();
-}
+};
 
-function selectImportancia(nivel) {
+// ── CREAR REPORTE ─────────────────────────────────────────────
+window.selectImportancia = function(nivel) {
   selectedImportancia = nivel;
   ['alta','media','baja'].forEach(n => document.getElementById('imp-'+n).classList.toggle('selected', n===nivel));
-}
+};
 
-async function crearReporte() {
+window.crearReporte = async function() {
   const depa = document.getElementById('inputDepa').value.trim();
   const desc = document.getElementById('inputDesc').value.trim();
   if (!depa) { showToast('Escribe el departamento','error'); return; }
@@ -294,53 +318,55 @@ async function crearReporte() {
   const btn = document.getElementById('submitBtn');
   btn.disabled=true; btn.textContent='Enviando...';
 
-  const reportes = await getData('reportes') || [];
-  const nuevo = {
-    id: Date.now().toString(), depa, desc,
-    importancia: selectedImportancia,
-    fecha: new Date().toISOString(),
-    estado: 'pendiente',
-    resolverPor: null, resolverFecha: null,
-    vistoPor: ['admin'],
-  };
-  reportes.push(nuevo);
-  await setData('reportes', reportes);
+  try {
+    await addDoc(collection(db, 'reportes'), {
+      depa, desc,
+      importancia: selectedImportancia,
+      fecha: serverTimestamp(),
+      estado: 'pendiente',
+      resolverPor: null,
+      resolverFecha: null,
+    });
 
-  const impEmoji = {alta:'🔴',media:'🟡',baja:'🟢'}[selectedImportancia];
-  const impLabel = {alta:'ALTA',media:'MEDIA',baja:'BAJA'}[selectedImportancia];
-  await sendTelegram(${impEmoji} <b>REPORTE NUEVO</b>\n\n📍 <b>${depa}</b>\n⚠️ Importancia: <b>${impLabel}</b>\n📝 ${desc}\n\n🕐 ${formatFechaCorta(new Date())});
+    const impEmoji = {alta:'🔴',media:'🟡',baja:'🟢'}[selectedImportancia];
+    const impLabel = {alta:'ALTA',media:'MEDIA',baja:'BAJA'}[selectedImportancia];
+    await sendTelegram(${impEmoji} <b>REPORTE NUEVO</b>\n\n📍 <b>${depa}</b>\n⚠️ Importancia: <b>${impLabel}</b>\n📝 ${desc}\n\n🕐 ${formatFechaCorta(new Date())});
 
-  document.getElementById('inputDepa').value='';
-  document.getElementById('inputDesc').value='';
-  selectedImportancia=null;
-  ['alta','media','baja'].forEach(n=>document.getElementById('imp-'+n).classList.remove('selected'));
+    document.getElementById('inputDepa').value='';
+    document.getElementById('inputDesc').value='';
+    selectedImportancia=null;
+    ['alta','media','baja'].forEach(n=>document.getElementById('imp-'+n).classList.remove('selected'));
+    showToast('Reporte enviado y equipo notificado ✅','success');
+    switchTab('pendientes');
+  } catch(e) {
+    showToast('Error al enviar, intenta de nuevo','error');
+  }
+
   btn.disabled=false; btn.textContent='Enviar Reporte';
-  showToast('Reporte enviado y equipo notificado ✅','success');
-  switchTab('pendientes');
-}
+};
 
-async function renderLista() {
+// ── LISTA ─────────────────────────────────────────────────────
+function renderLista() {
   const container = document.getElementById('listaReportes');
-  container.innerHTML='<div class="empty-state"><div class="empty-icon">⏳</div><p>Cargando...</p></div>';
-  const reportes = await getData('reportes') || [];
-  const filtrados = reportes.filter(r => currentTab==='pendientes' ? r.estado==='pendiente' : r.estado==='resuelto');
+  const filtrados = reportesCache.filter(r => currentTab==='pendientes' ? r.estado==='pendiente' : r.estado==='resuelto');
+
   const orden = {alta:0,media:1,baja:2};
   filtrados.sort((a,b) => currentTab==='pendientes'
-    ? (orden[a.importancia]-orden[b.importancia]) || (new Date(b.fecha)-new Date(a.fecha))
-    : new Date(b.resolverFecha||b.fecha)-new Date(a.resolverFecha||a.fecha));
+    ? (orden[a.importancia]-orden[b.importancia])
+    : 0);
 
   if (!filtrados.length) {
     container.innerHTML=<div class="empty-state"><div class="empty-icon">${currentTab==='pendientes'?'✅':'📋'}</div><p>${currentTab==='pendientes'?'No hay reportes pendientes':'No hay reportes resueltos'}</p></div>;
-    await marcarVistos(reportes); updateNotifBadge(); return;
+    return;
   }
 
   const ahora = new Date();
   container.innerHTML = filtrados.map(r => {
-    const esNuevo = !(r.vistoPor||[]).includes(currentRole);
     const impLabel = {alta:'🔴 ALTA',media:'🟡 MEDIA',baja:'🟢 BAJA'}[r.importancia];
+    const fechaMs = r.fecha?.toDate ? r.fecha.toDate() : new Date(r.fecha || Date.now());
     let horasBadge = '';
     if (r.estado==='pendiente') {
-      const h = Math.floor((ahora-new Date(r.fecha))/3600000);
+      const h = Math.floor((ahora - fechaMs) / 3600000);
       if (h>0) horasBadge=<span class="horas-badge ${h>=HORAS_CRITICO?'critico':''}">${h}h</span>;
     }
     return `<div class="reporte-card ${r.estado==='resuelto'?'resuelto':''}" onclick="openModal('${r.id}')">
@@ -348,74 +374,72 @@ async function renderLista() {
         <div><span class="reporte-depa">${r.depa}</span>${horasBadge}</div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
           <span class="badge badge-${r.importancia}">${impLabel}</span>
-          ${esNuevo&&r.estado==='pendiente'?'<span class="badge badge-nuevo">NUEVO</span>':''}
           ${r.estado==='resuelto'?'<span class="badge badge-resuelto">RESUELTO</span>':''}
         </div>
       </div>
       <div class="reporte-desc">${r.desc}</div>
       <div class="reporte-footer">
-        <span class="reporte-meta">${formatFechaCorta(new Date(r.fecha))}${r.estado==='resuelto'?' · '+(r.resolverPor||'—'):''}</span>
+        <span class="reporte-meta">${formatFechaCorta(fechaMs)}${r.estado==='resuelto'?' · '+(r.resolverPor||'—'):''}</span>
         ${r.estado==='pendiente'&&ROLES[currentRole].puedeResolver?<button class="resolver-btn" onclick="event.stopPropagation();resolverRapido('${r.id}')">✓ Resuelto</button>:''}
       </div>
     </div>`;
   }).join('');
-
-  await marcarVistos(reportes);
-  updateNotifBadge();
 }
 
-async function marcarVistos(reportes) {
-  let cambio=false;
-  reportes.forEach(r=>{ if(!r.vistoPor)r.vistoPor=[]; if(!r.vistoPor.includes(currentRole)){r.vistoPor.push(currentRole);cambio=true;} });
-  if(cambio) await setData('reportes',reportes);
-}
-
-async function resolverRapido(id) { await resolver(id); }
+// ── RESOLVER ─────────────────────────────────────────────────
+window.resolverRapido = async function(id) { await resolver(id); };
 
 async function resolver(id) {
-  const reportes = await getData('reportes')||[];
-  const idx = reportes.findIndex(r=>r.id===id);
-  if(idx===-1) return;
-  reportes[idx].estado='resuelto';
-  reportes[idx].resolverPor=currentUser;
-  reportes[idx].resolverFecha=new Date().toISOString();
-  await setData('reportes',reportes);
-  const r=reportes[idx];
-  await sendTelegram(✅ <b>REPORTE RESUELTO</b>\n\n📍 <b>${r.depa}</b>\n📝 ${r.desc}\n\n👤 Resuelto por: <b>${currentUser}</b>\n🕐 ${formatFechaCorta(new Date())});
-  closeModalDirect();
-  showToast('Marcado como resuelto ✅','success');
-  renderLista(); updateNotifBadge();
+  const r = reportesCache.find(x=>x.id===id); if(!r) return;
+  try {
+    await updateDoc(doc(db,'reportes',id), {
+      estado: 'resuelto',
+      resolverPor: currentUser,
+      resolverFecha: serverTimestamp(),
+    });
+    await sendTelegram(✅ <b>REPORTE RESUELTO</b>\n\n📍 <b>${r.depa}</b>\n📝 ${r.desc}\n\n👤 Resuelto por: <b>${currentUser}</b>\n🕐 ${formatFechaCorta(new Date())});
+    closeModalDirect();
+    showToast('Marcado como resuelto ✅','success');
+  } catch(e) {
+    showToast('Error al actualizar','error');
+  }
 }
 
-async function openModal(id) {
-  const reportes=await getData('reportes')||[];
-  const r=reportes.find(x=>x.id===id); if(!r) return;
+// ── MODAL ─────────────────────────────────────────────────────
+window.openModal = function(id) {
+  const r = reportesCache.find(x=>x.id===id); if(!r) return;
+  const fechaMs = r.fecha?.toDate ? r.fecha.toDate() : new Date(r.fecha || Date.now());
   document.getElementById('modalDepa').textContent=r.depa;
-  document.getElementById('modalFecha').textContent=formatFechaCorta(new Date(r.fecha));
+  document.getElementById('modalFecha').textContent=formatFechaCorta(fechaMs);
   document.getElementById('modalImpBadge').innerHTML=<span class="badge badge-${r.importancia}">${{alta:'🔴 ALTA',media:'🟡 MEDIA',baja:'🟢 BAJA'}[r.importancia]}</span>;
   document.getElementById('modalEstadoBadge').innerHTML=r.estado==='resuelto'?'<span class="badge badge-resuelto">RESUELTO</span>':'';
   document.getElementById('modalDesc').textContent=r.desc;
   const ri=document.getElementById('modalResolverInfo');
-  if(r.estado==='resuelto'&&r.resolverPor){ri.style.display='block';document.getElementById('modalResolverNombre').textContent=${r.resolverPor} · ${formatFechaCorta(new Date(r.resolverFecha))};}
-  else ri.style.display='none';
+  if(r.estado==='resuelto'&&r.resolverPor){
+    ri.style.display='block';
+    const rf = r.resolverFecha?.toDate ? r.resolverFecha.toDate() : new Date();
+    document.getElementById('modalResolverNombre').textContent=${r.resolverPor} · ${formatFechaCorta(rf)};
+  } else ri.style.display='none';
   const actions=document.getElementById('modalActions');
   actions.innerHTML = r.estado==='pendiente'&&ROLES[currentRole].puedeResolver
     ? <button class="modal-close" onclick="closeModalDirect()">Cerrar</button><button class="modal-resolver" onclick="resolver('${id}')">✓ Marcar resuelto</button>
     : <button class="modal-close" style="flex:1;" onclick="closeModalDirect()">Cerrar</button>;
   document.getElementById('modalOverlay').classList.add('open');
-}
+};
 
-function closeModal(e){if(e.target===document.getElementById('modalOverlay'))closeModalDirect();}
-function closeModalDirect(){document.getElementById('modalOverlay').classList.remove('open');}
+window.resolver = resolver;
+window.closeModal = function(e){if(e.target===document.getElementById('modalOverlay'))closeModalDirect();};
+window.closeModalDirect = function(){document.getElementById('modalOverlay').classList.remove('open');};
 
-async function updateNotifBadge(){
-  if(!currentRole)return;
-  const reportes=await getData('reportes')||[];
-  const n=reportes.filter(r=>r.estado==='pendiente'&&!(r.vistoPor||[]).includes(currentRole)).length;
+// ── NOTIF BADGE ───────────────────────────────────────────────
+function updateNotifBadge(){
+  if(!currentRole) return;
+  const n = reportesCache.filter(r=>r.estado==='pendiente').length;
   const b=document.getElementById('notifBadge');
   b.style.display=n>0?'flex':'none'; b.textContent=n;
 }
 
+// ── HELPERS ───────────────────────────────────────────────────
 function formatFechaCorta(d){
   if(!d)return'—';
   return new Date(d).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
@@ -426,6 +450,8 @@ function showToast(msg,type=''){
   t.textContent=msg; t.className='toast '+type; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),3500);
 }
+
+window.showToast = showToast;
 </script>
 </body>
 </html>
