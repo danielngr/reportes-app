@@ -423,7 +423,7 @@ function crearReporte(){
     estado:'pendiente',
     resolverPor:null, resolverFecha:null,
     foto:fotoBase64||null,
-    vistosPor:[currentUser],
+    vistosPor:[currentUser], creadoPor:currentUser, creadoPor:currentUser,
     comentarios:[]
   }).then(function(){
     var impEmoji={alta:'🔴',media:'🟡',baja:'🟢'}[selectedImportancia];
@@ -494,7 +494,7 @@ function renderLista(){
       +'<div class="reporte-header"><div><div class="reporte-depa">'+fotoIcon+r.depa+horasBadge+comentBadge+'</div><div class="reporte-cat">'+(r.categoria||'')+asignadoChip+'</div></div>'
       +'<div class="badges"><span class="badge badge-'+r.importancia+'">'+impLabel+'</span>'+estadoBadge+'</div></div>'
       +'<div class="reporte-desc">'+r.desc+'</div>'
-      +'<div class="reporte-footer"><span class="reporte-meta">'+fmt(fecha)+(r.estado==='resuelto'?' · '+(r.resolverPor||'—'):'')+' · '+r.creadoPor+'</span>'+btns+'</div>'
+      +'<div class="reporte-footer"><span class="reporte-meta">'+fmt(fecha)+(r.estado==='resuelto'?' · '+(r.resolverPor||'—'):'')+' · '+(r.creadoPor||'')+'</span>'+btns+'</div>'
       +vistoBar
       +'</div>';
   }).join('');
