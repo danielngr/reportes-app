@@ -121,10 +121,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .acceso-btn.puede.selected{border-color:var(--green);background:var(--green-dim);color:var(--green);}
 .acceso-btn.espera.selected{border-color:var(--orange);background:var(--orange-dim);color:var(--orange);}
 .acceso-btn.presencia.selected{border-color:var(--blue);background:var(--blue-dim);color:var(--blue);}
+.acceso-btn.na.selected{border-color:var(--text-muted);background:var(--surface2);color:var(--text-dim);}
 .acceso-chip{font-size:11px;font-family:'DM Sans',sans-serif;padding:3px 9px;border-radius:20px;font-weight:500;display:inline-block;margin-top:6px;}
 .acceso-chip.puede{background:var(--green-dim);color:var(--green);border:1px solid var(--green);}
 .acceso-chip.espera{background:var(--orange-dim);color:var(--orange);border:1px solid var(--orange);}
 .acceso-chip.presencia{background:var(--blue-dim);color:var(--blue);border:1px solid var(--blue);}
+.acceso-chip.na{background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);}
 .logout-btn{background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 11px;color:var(--text-muted);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;}
 </style>
 </head>
@@ -209,10 +211,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         
         <div class="form-group">
           <label class="form-label">Acceso al departamento</label>
-          <div class="acceso-grid">
+          <div class="acceso-grid" style="grid-template-columns:repeat(4,1fr);">
             <button class="acceso-btn puede" onclick="selectAcceso('puede')">✅ Puede entrar</button>
             <button class="acceso-btn espera" onclick="selectAcceso('espera')">⌛ En espera de respuesta</button>
             <button class="acceso-btn presencia" onclick="selectAcceso('presencia')">👤 Requiere presencia</button>
+            <button class="acceso-btn na" onclick="selectAcceso('na')">➖ N/A</button>
           </div>
         </div>
         <div class="form-group">
@@ -495,7 +498,7 @@ function renderLista(){
       var nComentarios=(r.comentarios||[]).length;
       var comentBadge=nComentarios>0?'<span style="font-size:10px;color:var(--text-muted);margin-left:5px;font-family:\'DM Mono\',monospace;">💬'+nComentarios+'</span>':'';
       var asigChip=safe(r.asignadoA)?'<span class="asignado-chip">→ '+r.asignadoA+'</span>':'';
-      var accesoMap={'puede':'✅ Puede entrar','espera':'⌛ En espera','presencia':'👤 Requiere presencia'};
+      var accesoMap={'puede':'✅ Puede entrar','espera':'⌛ En espera','presencia':'👤 Requiere presencia','na':'➖ N/A'};
       var accesoVal=r.acceso||'espera';
       var accesoChip='<span class="acceso-chip '+accesoVal+'">'+accesoMap[accesoVal]+'</span>';
       var estadoBadge=r.estado==='resuelto'?'<span class="badge badge-resuelto">RESUELTO</span>':r.estado==='en-proceso'?'<span class="badge badge-proceso">EN PROCESO</span>':'';
@@ -600,7 +603,7 @@ function renderModal(r){
   document.getElementById('modalMeta').textContent=safe(r.categoria)+(safe(r.creadoPor)?' · por '+r.creadoPor:'')+' · '+fmt(fecha);
   document.getElementById('modalImpBadge').innerHTML='<span class="badge badge-'+safe(r.importancia)+'">'+(r.importancia==='alta'?'🔴 ALTA':r.importancia==='media'?'🟡 MEDIA':'🟢 BAJA')+'</span>';
   document.getElementById('modalAsignadoBadge').innerHTML=safe(r.asignadoA)?'<span class="asignado-chip">→ '+r.asignadoA+'</span>':'';
-  var accesoMapM={'puede':'✅ Puede entrar','espera':'⌛ En espera de respuesta','presencia':'👤 Requiere presencia'};
+  var accesoMapM={'puede':'✅ Puede entrar','espera':'⌛ En espera de respuesta','presencia':'👤 Requiere presencia','na':'➖ N/A'};
   var accesoVal=r.acceso||'espera';
   document.getElementById('modalAcceso').innerHTML='<span class="acceso-chip '+accesoVal+'">'+accesoMapM[accesoVal]+'</span> <button onclick="abrirCambioAcceso(\''+r.id+'\')" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;color:var(--text-muted);font-size:11px;cursor:pointer;margin-left:6px;font-family:DM Sans,sans-serif;">Cambiar</button>';
   document.getElementById('modalEstadoBadge').innerHTML=r.estado==='resuelto'?'<span class="badge badge-resuelto">RESUELTO</span>':r.estado==='en-proceso'?'<span class="badge badge-proceso">EN PROCESO</span>'+(safe(r.procesoPor)?' <span style="font-size:10px;color:var(--text-muted);font-family:DM Mono,monospace;">por '+r.procesoPor+'</span>':''):'';
@@ -636,7 +639,8 @@ function abrirCambioAcceso(id){
   var opciones=[
     {key:'puede',label:'✅ Puede entrar'},
     {key:'espera',label:'⌛ En espera de respuesta'},
-    {key:'presencia',label:'👤 Requiere presencia'}
+    {key:'presencia',label:'👤 Requiere presencia'},
+    {key:'na',label:'➖ N/A'}
   ];
   var html='<div style="margin-top:12px;"><div class="section-label" style="margin-bottom:8px;">Cambiar acceso</div><div style="display:flex;flex-direction:column;gap:6px;">';
   opciones.forEach(function(o){
@@ -648,7 +652,7 @@ function abrirCambioAcceso(id){
 
 function cambiarAcceso(id,acceso){
   var r=reportesCache.find(function(x){return x.id===id;});
-  var accesoLabels={'puede':'✅ Puede entrar','espera':'⌛ En espera de respuesta','presencia':'👤 Requiere presencia'};
+  var accesoLabels={'puede':'✅ Puede entrar','espera':'⌛ En espera de respuesta','presencia':'👤 Requiere presencia','na':'➖ N/A'};
   db.collection('reportes').doc(id).update({acceso:acceso}).then(function(){
     document.getElementById('accesoSelector').innerHTML='';
     if(r) sendTelegram('🔑 <b>ACCESO ACTUALIZADO</b>\n\n📍 <b>'+safe(r.depa)+'</b>\n🏷 '+safe(r.categoria)+'\n➡️ '+accesoLabels[acceso]+'\n\n👤 Por: <b>'+currentUser+'</b>\n🕐 '+fmt(new Date()));
