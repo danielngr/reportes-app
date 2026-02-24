@@ -135,12 +135,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   <div class="login-title">¿Quién eres?</div>
   <div class="login-sub">Selecciona tu nombre e ingresa tu PIN</div>
   <div class="users-grid">
-    <div class="user-btn" onclick="selectUser('daniel')"><div class="user-name">Daniel</div></div>
-    <div class="user-btn" onclick="selectUser('rodrigo')"><div class="user-name">Rodrigo</div></div>
-    <div class="user-btn" onclick="selectUser('paulo')"><div class="user-name">Paulo</div></div>
-    <div class="user-btn" onclick="selectUser('josimar')"><div class="user-name">Josimar</div></div>
-    <div class="user-btn" onclick="selectUser('daniela')"><div class="user-name">Daniela</div></div>
-    <div class="user-btn" onclick="selectUser('zayda')"><div class="user-name">Zayda</div></div>
+    <div class="user-btn" onclick="selectUser('daniel',this)"><div class="user-name">Daniel</div></div>
+    <div class="user-btn" onclick="selectUser('rodrigo',this)"><div class="user-name">Rodrigo</div></div>
+    <div class="user-btn" onclick="selectUser('paulo',this)"><div class="user-name">Paulo</div></div>
+    <div class="user-btn" onclick="selectUser('josimar',this)"><div class="user-name">Josimar</div></div>
+    <div class="user-btn" onclick="selectUser('daniela',this)"><div class="user-name">Daniela</div></div>
+    <div class="user-btn" onclick="selectUser('zayda',this)"><div class="user-name">Zayda</div></div>
   </div>
   <div class="pin-section">
     <div class="pin-label">PIN de acceso</div>
@@ -326,10 +326,10 @@ function getFecha(r){
 function safe(val){ return val || ''; }
 
 // LOGIN
-function selectUser(key){
+function selectUser(key,el){
   selectedUserKey=key;
   document.querySelectorAll('.user-btn').forEach(function(b){b.classList.remove('selected');});
-  event.currentTarget.classList.add('selected');
+  (el||event.currentTarget).classList.add('selected');
   document.getElementById('pinInput').focus();
   document.getElementById('loginError').textContent='';
 }
