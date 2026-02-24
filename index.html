@@ -115,6 +115,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .visto-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;}
 .visto-chip{font-size:10px;font-family:'DM Mono',monospace;padding:3px 7px;border-radius:20px;background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);}
 .visto-chip.si{border-color:var(--green);color:var(--green);background:var(--green-dim);}
+
+.acceso-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
+.acceso-btn{padding:9px 6px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:11px;font-weight:500;cursor:pointer;text-align:center;transition:all 0.2s;font-family:'DM Sans',sans-serif;line-height:1.3;}
+.acceso-btn.puede.selected{border-color:var(--green);background:var(--green-dim);color:var(--green);}
+.acceso-btn.espera.selected{border-color:var(--orange);background:var(--orange-dim);color:var(--orange);}
+.acceso-btn.presencia.selected{border-color:var(--blue);background:var(--blue-dim);color:var(--blue);}
+.acceso-chip{font-size:11px;font-family:'DM Sans',sans-serif;padding:3px 9px;border-radius:20px;font-weight:500;display:inline-block;margin-top:6px;}
+.acceso-chip.puede{background:var(--green-dim);color:var(--green);border:1px solid var(--green);}
+.acceso-chip.espera{background:var(--orange-dim);color:var(--orange);border:1px solid var(--orange);}
+.acceso-chip.presencia{background:var(--blue-dim);color:var(--blue);border:1px solid var(--blue);}
 .logout-btn{background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 11px;color:var(--text-muted);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;}
 </style>
 </head>
@@ -196,6 +206,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
             <option value="Zayda">Zayda</option>
           </select>
         </div>
+        
+        <div class="form-group">
+          <label class="form-label">Acceso al departamento</label>
+          <div class="acceso-grid">
+            <button class="acceso-btn puede" onclick="selectAcceso('puede')">✅ Puede entrar</button>
+            <button class="acceso-btn espera" onclick="selectAcceso('espera')">⌛ En espera de respuesta</button>
+            <button class="acceso-btn presencia" onclick="selectAcceso('presencia')">👤 Requiere presencia</button>
+          </div>
+        </div>
         <div class="form-group">
           <label class="form-label">Foto (opcional)</label>
           <div class="foto-area">
@@ -219,10 +238,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div id="modalEstadoBadge"></div>
     </div>
     <div class="modal-meta" id="modalMeta"></div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
       <div id="modalImpBadge"></div>
       <div id="modalAsignadoBadge"></div>
     </div>
+    <div id="modalAcceso" style="margin-bottom:12px;"></div>
     <img id="modalImg" class="modal-img">
     <div class="modal-desc" id="modalDesc"></div>
     <div id="modalResolverInfo" style="display:none;margin-bottom:12px;">
@@ -230,6 +250,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div id="modalResolverNombre" style="font-size:12px;color:var(--text-dim);"></div>
     </div>
     <div class="modal-actions" id="modalActions"></div>
+    <div id="accesoSelector"></div>
     <div class="divider"></div>
     <div class="section-label">Comentarios</div>
     <div class="comentarios-lista" id="comentariosLista"></div>
@@ -386,6 +407,13 @@ function selectImportancia(nivel){
   });
 }
 
+
+function selectAcceso(tipo){
+  selectedAcceso=tipo;
+  document.querySelectorAll('.acceso-btn').forEach(function(b){b.classList.remove('selected');});
+  document.querySelectorAll('.acceso-btn.'+tipo).forEach(function(b){b.classList.add('selected');});
+}
+
 function crearReporte(){
   var depa=document.getElementById('inputDepa').value.trim();
   var categoria=document.getElementById('inputCategoria').value;
@@ -395,6 +423,7 @@ function crearReporte(){
   if(!categoria){showToast('Selecciona una categoría','error');return;}
   if(!desc){showToast('Escribe la descripción','error');return;}
   if(!selectedImportancia){showToast('Selecciona la importancia','error');return;}
+  if(!selectedAcceso){showToast('Selecciona el acceso','error');return;}
   var btn=document.getElementById('submitBtn');
   btn.disabled=true; btn.textContent='Enviando...';
   db.collection('reportes').add({
@@ -402,6 +431,7 @@ function crearReporte(){
     importancia:selectedImportancia,
     asignadoA:asignar||'',
     creadoPor:currentUser,
+    acceso:selectedAcceso||'espera',
     fecha:firebase.firestore.FieldValue.serverTimestamp(),
     estado:'pendiente',
     resolverPor:'', resolverFecha:null,
@@ -419,7 +449,8 @@ function crearReporte(){
     document.getElementById('inputAsignar').value='';
     document.getElementById('fotoPreview').style.display='none';
     document.getElementById('fotoInput').value='';
-    fotoBase64=null; selectedImportancia=null;
+    fotoBase64=null; selectedImportancia=null; selectedAcceso=null;
+    document.querySelectorAll('.acceso-btn').forEach(function(b){b.classList.remove('selected');});
     ['alta','media','baja'].forEach(function(n){document.querySelectorAll('.imp-btn.'+n).forEach(function(b){b.classList.remove('selected');});});
     showToast('Reporte enviado ✅','success');
     switchTab('pendientes');
@@ -465,6 +496,8 @@ function renderLista(){
       var nComentarios=(r.comentarios||[]).length;
       var comentBadge=nComentarios>0?'<span style="font-size:10px;color:var(--text-muted);margin-left:5px;font-family:\'DM Mono\',monospace;">💬'+nComentarios+'</span>':'';
       var asigChip=safe(r.asignadoA)?'<span class="asignado-chip">→ '+r.asignadoA+'</span>':'';
+    var accesoMap={'puede':'✅ Puede entrar','espera':'⌛ En espera','presencia':'👤 Requiere presencia'};
+    var accesoChip=r.acceso?'<span class="acceso-chip '+r.acceso+'">'+accesoMap[r.acceso]+'</span>':'';
       var estadoBadge=r.estado==='resuelto'?'<span class="badge badge-resuelto">RESUELTO</span>':r.estado==='en-proceso'?'<span class="badge badge-proceso">EN PROCESO</span>':'';
       var fotoIcon=safe(r.foto)?'📷 ':'';
       var btns='';
@@ -481,7 +514,7 @@ function renderLista(){
       html+='<div class="reporte-card'+(r.estado==='resuelto'?' resuelto':r.estado==='en-proceso'?' en-proceso':'')+'" onclick="openModal(\''+r.id+'\')">'
         +'<div class="reporte-header">'
           +'<div><div class="reporte-depa">'+fotoIcon+safe(r.depa)+horasBadge+comentBadge+'</div>'
-          +'<div class="reporte-cat">'+safe(r.categoria)+asigChip+'</div></div>'
+          +'<div class="reporte-cat">'+safe(r.categoria)+asigChip+'</div>'+accesoChip+'</div>'
           +'<div class="badges"><span class="badge badge-'+safe(r.importancia)+'">'+impLabel+'</span>'+estadoBadge+'</div>'
         +'</div>'
         +'<div class="reporte-desc">'+safe(r.desc)+'</div>'
@@ -564,6 +597,8 @@ function renderModal(r){
   document.getElementById('modalMeta').textContent=safe(r.categoria)+(safe(r.creadoPor)?' · por '+r.creadoPor:'')+' · '+fmt(fecha);
   document.getElementById('modalImpBadge').innerHTML='<span class="badge badge-'+safe(r.importancia)+'">'+(r.importancia==='alta'?'🔴 ALTA':r.importancia==='media'?'🟡 MEDIA':'🟢 BAJA')+'</span>';
   document.getElementById('modalAsignadoBadge').innerHTML=safe(r.asignadoA)?'<span class="asignado-chip">→ '+r.asignadoA+'</span>':'';
+  var accesoMapM={'puede':'✅ Puede entrar','espera':'⌛ En espera de respuesta','presencia':'👤 Requiere presencia'};
+  document.getElementById('modalAcceso').innerHTML=r.acceso?'<span class="acceso-chip '+r.acceso+'">'+accesoMapM[r.acceso]+'</span> <button onclick="abrirCambioAcceso(''+r.id+'')" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;color:var(--text-muted);font-size:11px;cursor:pointer;margin-left:6px;font-family:DM Sans,sans-serif;">Cambiar</button>':'';
   document.getElementById('modalEstadoBadge').innerHTML=r.estado==='resuelto'?'<span class="badge badge-resuelto">RESUELTO</span>':r.estado==='en-proceso'?'<span class="badge badge-proceso">EN PROCESO</span>':'';
   document.getElementById('modalDesc').textContent=safe(r.desc);
   var img=document.getElementById('modalImg');
@@ -593,8 +628,30 @@ function renderModal(r){
   }).join('');
 }
 
+
+function abrirCambioAcceso(id){
+  var opciones=[
+    {key:'puede',label:'✅ Puede entrar'},
+    {key:'espera',label:'⌛ En espera de respuesta'},
+    {key:'presencia',label:'👤 Requiere presencia'}
+  ];
+  var html='<div style="margin-top:12px;"><div class="section-label" style="margin-bottom:8px;">Cambiar acceso</div><div style="display:flex;flex-direction:column;gap:6px;">';
+  opciones.forEach(function(o){
+    html+='<button onclick="cambiarAcceso(''+id+'',''+o.key+'')" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-size:13px;cursor:pointer;font-family:DM Sans,sans-serif;text-align:left;">'+o.label+'</button>';
+  });
+  html+='</div></div>';
+  document.getElementById('accesoSelector').innerHTML=html;
+}
+
+function cambiarAcceso(id,acceso){
+  db.collection('reportes').doc(id).update({acceso:acceso}).then(function(){
+    document.getElementById('accesoSelector').innerHTML='';
+    showToast('Acceso actualizado','success');
+  }).catch(function(){showToast('Error','error');});
+}
+
 function cerrarModalSiClick(e){if(e.target===document.getElementById('modalOverlay'))closeModalDirect();}
-function closeModalDirect(){document.getElementById('modalOverlay').classList.remove('open');modalReporteId=null;}
+function closeModalDirect(){document.getElementById('modalOverlay').classList.remove('open');modalReporteId=null;document.getElementById('accesoSelector').innerHTML='';}
 
 function updateNotifBadge(){
   if(!currentKey)return;
