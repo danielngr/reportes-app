@@ -272,7 +272,7 @@ var TG_CHAT_ID = '-5227411507';
 var HORAS_CRITICO = 8;
 
 var USUARIOS = {
-  daniel:  { nombre:'Daniel',  pin:'1111', puedeCrear:true,  puedeResolver:false, puedeBorrar:true  },
+  daniel:  { nombre:'Daniel',  pin:'1111', puedeCrear:true,  puedeResolver:true,  puedeBorrar:true  },
   rodrigo: { nombre:'Rodrigo', pin:'2222', puedeCrear:true,  puedeResolver:true,  puedeBorrar:false },
   paulo:   { nombre:'Paulo',   pin:'3333', puedeCrear:true,  puedeResolver:true,  puedeBorrar:false },
   josimar: { nombre:'Josimar', pin:'4444', puedeCrear:false, puedeResolver:true,  puedeBorrar:false },
@@ -532,13 +532,16 @@ function renderLista(){
 function cambiarEstado(id,estado){
   var r=reportesCache.find(function(x){return x.id===id;});
   if(!r)return;
-  db.collection('reportes').doc(id).update({estado:estado}).then(function(){
+  var updateData={estado:estado};
+  if(estado==='en-proceso') updateData.procesoPor=currentUser;
+  db.collection('reportes').doc(id).update(updateData).then(function(){
     if(estado==='en-proceso') sendTelegram('⏳ <b>EN PROCESO</b>\n\n📍 <b>'+safe(r.depa)+'</b>\n📝 '+safe(r.desc)+'\n\n👤 Atendiendo: <b>'+currentUser+'</b>\n🕐 '+fmt(new Date()));
     showToast('Actualizado','success');
   }).catch(function(){showToast('Error','error');});
 }
 
 function resolver(id){
+  if(!confirm('¿Marcar este reporte como resuelto?'))return;
   var r=reportesCache.find(function(x){return x.id===id;});
   if(!r)return;
   db.collection('reportes').doc(id).update({
@@ -600,7 +603,7 @@ function renderModal(r){
   var accesoMapM={'puede':'✅ Puede entrar','espera':'⌛ En espera de respuesta','presencia':'👤 Requiere presencia'};
   var accesoVal=r.acceso||'espera';
   document.getElementById('modalAcceso').innerHTML='<span class="acceso-chip '+accesoVal+'">'+accesoMapM[accesoVal]+'</span> <button onclick="abrirCambioAcceso(\''+r.id+'\')" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;color:var(--text-muted);font-size:11px;cursor:pointer;margin-left:6px;font-family:DM Sans,sans-serif;">Cambiar</button>';
-  document.getElementById('modalEstadoBadge').innerHTML=r.estado==='resuelto'?'<span class="badge badge-resuelto">RESUELTO</span>':r.estado==='en-proceso'?'<span class="badge badge-proceso">EN PROCESO</span>':'';
+  document.getElementById('modalEstadoBadge').innerHTML=r.estado==='resuelto'?'<span class="badge badge-resuelto">RESUELTO</span>':r.estado==='en-proceso'?'<span class="badge badge-proceso">EN PROCESO</span>'+(safe(r.procesoPor)?' <span style="font-size:10px;color:var(--text-muted);font-family:DM Mono,monospace;">por '+r.procesoPor+'</span>':''):'';
   document.getElementById('modalDesc').textContent=safe(r.desc);
   var img=document.getElementById('modalImg');
   if(safe(r.foto)){img.src=r.foto;img.style.display='block';}else img.style.display='none';
@@ -644,8 +647,11 @@ function abrirCambioAcceso(id){
 }
 
 function cambiarAcceso(id,acceso){
+  var r=reportesCache.find(function(x){return x.id===id;});
+  var accesoLabels={'puede':'✅ Puede entrar','espera':'⌛ En espera de respuesta','presencia':'👤 Requiere presencia'};
   db.collection('reportes').doc(id).update({acceso:acceso}).then(function(){
     document.getElementById('accesoSelector').innerHTML='';
+    if(r) sendTelegram('🔑 <b>ACCESO ACTUALIZADO</b>\n\n📍 <b>'+safe(r.depa)+'</b>\n🏷 '+safe(r.categoria)+'\n➡️ '+accesoLabels[acceso]+'\n\n👤 Por: <b>'+currentUser+'</b>\n🕐 '+fmt(new Date()));
     showToast('Acceso actualizado','success');
   }).catch(function(){showToast('Error','error');});
 }
