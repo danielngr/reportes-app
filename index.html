@@ -293,7 +293,7 @@ firebase.initializeApp({
 var db = firebase.firestore();
 
 var currentKey=null, currentUser=null;
-var selectedUserKey=null, selectedImportancia=null, currentTab='pendientes';
+var selectedUserKey=null, selectedImportancia=null, selectedAcceso=null, currentTab='pendientes';
 var reportesCache=[], unsubscribe=null, modalReporteId=null, fotoBase64=null;
 
 function sendTelegram(msg){
@@ -407,7 +407,6 @@ function selectImportancia(nivel){
   });
 }
 
-
 function selectAcceso(tipo){
   selectedAcceso=tipo;
   document.querySelectorAll('.acceso-btn').forEach(function(b){b.classList.remove('selected');});
@@ -496,8 +495,8 @@ function renderLista(){
       var nComentarios=(r.comentarios||[]).length;
       var comentBadge=nComentarios>0?'<span style="font-size:10px;color:var(--text-muted);margin-left:5px;font-family:\'DM Mono\',monospace;">💬'+nComentarios+'</span>':'';
       var asigChip=safe(r.asignadoA)?'<span class="asignado-chip">→ '+r.asignadoA+'</span>':'';
-    var accesoMap={'puede':'✅ Puede entrar','espera':'⌛ En espera','presencia':'👤 Requiere presencia'};
-    var accesoChip=r.acceso?'<span class="acceso-chip '+r.acceso+'">'+accesoMap[r.acceso]+'</span>':'';
+      var accesoMap={'puede':'✅ Puede entrar','espera':'⌛ En espera','presencia':'👤 Requiere presencia'};
+      var accesoChip=r.acceso?'<span class="acceso-chip '+r.acceso+'">'+accesoMap[r.acceso]+'</span>':'';
       var estadoBadge=r.estado==='resuelto'?'<span class="badge badge-resuelto">RESUELTO</span>':r.estado==='en-proceso'?'<span class="badge badge-proceso">EN PROCESO</span>':'';
       var fotoIcon=safe(r.foto)?'📷 ':'';
       var btns='';
@@ -598,7 +597,7 @@ function renderModal(r){
   document.getElementById('modalImpBadge').innerHTML='<span class="badge badge-'+safe(r.importancia)+'">'+(r.importancia==='alta'?'🔴 ALTA':r.importancia==='media'?'🟡 MEDIA':'🟢 BAJA')+'</span>';
   document.getElementById('modalAsignadoBadge').innerHTML=safe(r.asignadoA)?'<span class="asignado-chip">→ '+r.asignadoA+'</span>':'';
   var accesoMapM={'puede':'✅ Puede entrar','espera':'⌛ En espera de respuesta','presencia':'👤 Requiere presencia'};
-  document.getElementById('modalAcceso').innerHTML=r.acceso?'<span class="acceso-chip '+r.acceso+'">'+accesoMapM[r.acceso]+'</span> <button onclick="abrirCambioAcceso(''+r.id+'')" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;color:var(--text-muted);font-size:11px;cursor:pointer;margin-left:6px;font-family:DM Sans,sans-serif;">Cambiar</button>':'';
+  document.getElementById('modalAcceso').innerHTML=r.acceso?'<span class="acceso-chip '+r.acceso+'">'+accesoMapM[r.acceso]+'</span> <button onclick="abrirCambioAcceso(\''+r.id+'\')" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;color:var(--text-muted);font-size:11px;cursor:pointer;margin-left:6px;font-family:DM Sans,sans-serif;">Cambiar</button>':'';
   document.getElementById('modalEstadoBadge').innerHTML=r.estado==='resuelto'?'<span class="badge badge-resuelto">RESUELTO</span>':r.estado==='en-proceso'?'<span class="badge badge-proceso">EN PROCESO</span>':'';
   document.getElementById('modalDesc').textContent=safe(r.desc);
   var img=document.getElementById('modalImg');
@@ -628,7 +627,6 @@ function renderModal(r){
   }).join('');
 }
 
-
 function abrirCambioAcceso(id){
   var opciones=[
     {key:'puede',label:'✅ Puede entrar'},
@@ -637,7 +635,7 @@ function abrirCambioAcceso(id){
   ];
   var html='<div style="margin-top:12px;"><div class="section-label" style="margin-bottom:8px;">Cambiar acceso</div><div style="display:flex;flex-direction:column;gap:6px;">';
   opciones.forEach(function(o){
-    html+='<button onclick="cambiarAcceso(''+id+'',''+o.key+'')" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-size:13px;cursor:pointer;font-family:DM Sans,sans-serif;text-align:left;">'+o.label+'</button>';
+    html+='<button onclick="cambiarAcceso(\''+id+'\',\''+o.key+'\')" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-size:13px;cursor:pointer;font-family:DM Sans,sans-serif;text-align:left;">'+o.label+'</button>';
   });
   html+='</div></div>';
   document.getElementById('accesoSelector').innerHTML=html;
