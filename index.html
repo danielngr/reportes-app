@@ -496,7 +496,8 @@ function renderLista(){
       var comentBadge=nComentarios>0?'<span style="font-size:10px;color:var(--text-muted);margin-left:5px;font-family:\'DM Mono\',monospace;">💬'+nComentarios+'</span>':'';
       var asigChip=safe(r.asignadoA)?'<span class="asignado-chip">→ '+r.asignadoA+'</span>':'';
       var accesoMap={'puede':'✅ Puede entrar','espera':'⌛ En espera','presencia':'👤 Requiere presencia'};
-      var accesoChip=r.acceso?'<span class="acceso-chip '+r.acceso+'">'+accesoMap[r.acceso]+'</span>':'';
+      var accesoVal=r.acceso||'espera';
+      var accesoChip='<span class="acceso-chip '+accesoVal+'">'+accesoMap[accesoVal]+'</span>';
       var estadoBadge=r.estado==='resuelto'?'<span class="badge badge-resuelto">RESUELTO</span>':r.estado==='en-proceso'?'<span class="badge badge-proceso">EN PROCESO</span>':'';
       var fotoIcon=safe(r.foto)?'📷 ':'';
       var btns='';
@@ -597,7 +598,8 @@ function renderModal(r){
   document.getElementById('modalImpBadge').innerHTML='<span class="badge badge-'+safe(r.importancia)+'">'+(r.importancia==='alta'?'🔴 ALTA':r.importancia==='media'?'🟡 MEDIA':'🟢 BAJA')+'</span>';
   document.getElementById('modalAsignadoBadge').innerHTML=safe(r.asignadoA)?'<span class="asignado-chip">→ '+r.asignadoA+'</span>':'';
   var accesoMapM={'puede':'✅ Puede entrar','espera':'⌛ En espera de respuesta','presencia':'👤 Requiere presencia'};
-  document.getElementById('modalAcceso').innerHTML=r.acceso?'<span class="acceso-chip '+r.acceso+'">'+accesoMapM[r.acceso]+'</span> <button onclick="abrirCambioAcceso(\''+r.id+'\')" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;color:var(--text-muted);font-size:11px;cursor:pointer;margin-left:6px;font-family:DM Sans,sans-serif;">Cambiar</button>':'';
+  var accesoVal=r.acceso||'espera';
+  document.getElementById('modalAcceso').innerHTML='<span class="acceso-chip '+accesoVal+'">'+accesoMapM[accesoVal]+'</span> <button onclick="abrirCambioAcceso(\''+r.id+'\')" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;color:var(--text-muted);font-size:11px;cursor:pointer;margin-left:6px;font-family:DM Sans,sans-serif;">Cambiar</button>';
   document.getElementById('modalEstadoBadge').innerHTML=r.estado==='resuelto'?'<span class="badge badge-resuelto">RESUELTO</span>':r.estado==='en-proceso'?'<span class="badge badge-proceso">EN PROCESO</span>':'';
   document.getElementById('modalDesc').textContent=safe(r.desc);
   var img=document.getElementById('modalImg');
